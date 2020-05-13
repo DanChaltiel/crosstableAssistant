@@ -1,0 +1,22 @@
+Package: crosstableAssistant
+Title: Crosstable Assistant
+Encoding: UTF-8
+Version: 0.1.0
+Authors@R: person("Dan", "Chaltiel", email = "dan.chaltiel@gmail.com", role = c("aut", "cre"))
+Description: Rstudio graphic assistant to easily build crosstables
+Depends:
+    R (>= 3.0.0),
+    crosstable
+Imports:
+    dplyr,
+    htmltools,
+    shiny,
+    shinyjs,
+    shinyWidgets,
+    shinyBS,
+    glue,
+    rstudioapi (>= 0.4)
+Remotes: DanChaltiel/crosstable
+License: MIT + file LICENSE
+LazyData: true
+RoxygenNote: 7.1.0
