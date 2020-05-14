@@ -108,9 +108,6 @@ crosstableUI = function(){
       ),
 
       mainPanel(
-        #TODO: guide sur comment gérer les colonnes,
-        #TODO: guide sur comment ajouter les labels avec expss
-        #TODO: un code avec full parameters, un code simplifié avec les par défaut
         tabsetPanel(
           tabPanel("Flextable", fluidPage(
             uiOutput("result_FT_message"),
@@ -127,10 +124,10 @@ crosstableUI = function(){
             DT::dataTableOutput("result_dataset")
           )),
           tabPanel("Code", fluidPage(
-            h4("Full code"),
-            verbatimTextOutput("result_full_code"),
             h4("Simplified code"),
             verbatimTextOutput("result_simple_code"),
+            h4("Full code (all parameters)"),
+            verbatimTextOutput("result_full_code"),
             h4("Advices"),
             htmlOutput("code_guide_label"),
           ))

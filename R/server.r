@@ -232,11 +232,16 @@ crosstableServer = function(input, output, session, data=NULL) {
     .by=get_by()
     if(is.null(.by)) .by="NULL"
     .margin=get_margin()
+    if(length(.margin)>1)
+      .margin=glue('c("{paste(.margin, collapse="\\", \\"")}")')
+    else
+      .margin=glue('"{.margin}"')
+
     .total=get_total()
     .dataset = reactiveValuesToList(dataset)
     selection = names(.dataset$data) %>% setdiff(.by) %>% paste(collapse=", ")
     nl=paste0("\n", strrep(" ", nchar("ct = crosstable(")))
-    glue('ct = crosstable(data={.dataset$name}, {nl}c({selection}), {nl}by={.by}, {nl}margin="{.margin}", {nl}total="{.total}", {nl}percent_digits ="{input$percent_digits }", {nl}showNA="{input$showNA}", {nl}label={input$label}, {nl}cor_method="{input$cor_method}", {nl}unique_numeric={input$unique_numeric}, {nl}test={input$test}, {nl}effect={input$effect})\nas_flextable(ct)') %>% cat
+    glue('ct = crosstable(data={.dataset$name}, {nl}c({selection}), {nl}by={.by}, {nl}margin={.margin}, {nl}total="{.total}", {nl}percent_digits={input$percent_digits}, {nl}showNA="{input$showNA}", {nl}label={input$label}, {nl}cor_method="{input$cor_method}", {nl}unique_numeric={input$unique_numeric}, {nl}test={input$test}, {nl}effect={input$effect})\nas_flextable(ct)') %>% cat
   })
 
   output$result_simple_code = renderText({
@@ -257,9 +262,30 @@ crosstableServer = function(input, output, session, data=NULL) {
 
     if(!is.null(by)) .by="by={by}" else .by=NULL
     margin=get_margin()
-    if(margin!="row" && !is.null(by)) .margin='margin="{margin}"' else .margin=NULL
+    # if(!identical(margin, "row") && !is.null(by)) {
+    #   # browser()
+    #   if(length(margin)==1)
+    #     .margin='margin="{margin}"'
+    #   else
+    #     .margin='margin=c("{paste(margin, collapse="\\", \\"")}")'
+    # } else {
+    #   .margin=NULL
+    # }
+    if(identical(margin, "row") || is.null(by)) {
+      .margin=NULL
+    } else if(setequal(margin, c("row", "column", "cell"))){
+      .margin='margin="all"'
+    } else {
+      if(length(margin)==1)
+        .margin='margin="{margin}"'
+      else
+        .margin='margin=c("{paste(margin, collapse="\\", \\"")}")'
+    }
+
+
+
     percent_digits=input$percent_digits
-    if(percent_digits!=2) .percent_digits='percent_digits="{percent_digits}"' else .percent_digits=NULL
+    if(percent_digits!=2) .percent_digits='percent_digits={percent_digits}' else .percent_digits=NULL
     total=get_total()
     if(total!="none") .total='total="{total}"' else .total=NULL
     showNA=input$showNA
