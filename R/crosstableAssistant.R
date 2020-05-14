@@ -2,7 +2,10 @@
 # iris2
 # iris2=iris2
 
-
+#' Crosstable Assistant
+#' @examples
+#' crosstableAssistant()
+#' crosstableAssistant(mtcars)
 crosstableAssistant=function(.data=NULL, viewer="dialog"){
 
   if(!isNamespaceLoaded("crosstable")){
@@ -11,14 +14,13 @@ crosstableAssistant=function(.data=NULL, viewer="dialog"){
 
   context = rstudioapi::getSourceEditorContext()
   selected_dataname = context$selection[[1]]$text
-  selected_dataname="ris"
-  selected_dataname="letters"
+  # selected_dataname="ris"
+  # selected_dataname="letters"
 
   data = list()
   if(is.null(.data) && nzchar(selected_dataname)) {
     data$name = selected_dataname
-    data$data = get(selected_dataname, envir = parent.frame())
-    #TODO checker que selected_dataname est une df/tbl etc
+    data$data = mget(selected_dataname, inherit=TRUE, ifnotfound=list(NULL))[[1]]
   } else {
     data$name = deparse(substitute(.data))
     data$data = .data
@@ -45,3 +47,5 @@ crosstableAssistant=function(.data=NULL, viewer="dialog"){
     viewer = inviewer
   )
 }
+
+

@@ -23,7 +23,7 @@ enableCheckboxGroupButton = function(inputId, value, enable=TRUE){
 
 #' Prints something in the JS console
 #'
-#' You can use the `glue` syntax to include variables in the log. You can parametrize the color and the background. The title argument simply put the color to "red" if TRUE.
+#' You can use the `glue` syntax to include variables in the log. You can parametrize the color and the background. The title argument simply put the background in red if TRUE.
 #'
 #' @importFrom shinyjs runjs
 #' @importFrom glue glue
@@ -33,7 +33,7 @@ enableCheckboxGroupButton = function(inputId, value, enable=TRUE){
 #' console_log("There was {nrow(iris)} rows in the iris dataset")
 #' console_log("**Main Object Construction**, title=TRUE")
 console_log = function(x, ..., color=NULL, bg=NULL, title=FALSE){
-  msg = glue(as.character(x), .envir = parent.frame())
+  msg = glue(as.character(x), ..., .envir = parent.frame())
   if(is.null(color)) color='#f00'
   if(is.null(bg)) bg='#fff'
   if(title==TRUE)
@@ -50,13 +50,16 @@ console_log = function(x, ..., color=NULL, bg=NULL, title=FALSE){
 #' @importFrom shinyjs runjs
 #' @importFrom glue glue
 #' @importFrom rlang enquos as_label
-#' @importFrom purrr map_chr
+#' @importFrom purrr map map_chr
 #' @seealso shinyjs::showLog console_log
 #' @examples
 #' #in server.R
 #' console_var(letters[1], letters[2:4])
+#' console_var(names(iris)[1:2], dim(iris))
+#'
 #' #output in the JS console:
 #' #letters[1]=[a], letters[2:3]=[b, c, d]
+#' #names(iris)[1:2]=[Sepal.Length, Sepal.Width], dim(iris)=[150, 5]
 console_var = function(...){
   env=parent.frame()
   labs = enquos(...) %>% map_chr(as_label)
@@ -66,19 +69,6 @@ console_var = function(...){
   msg = glue("{labs}={vals}") %>% paste(collapse=", ")
   msg = glue("console.log('{msg}');")
   runjs(msg)
-}
-
-#' test_condition("is_num", undefined="true")
-test_condition = function(x, go=TRUE, undefined="true", accessor="do_show"){
-  glue("
-     {if(!go)'!'}((typeof output!=='undefined' && typeof output.{accessor}!=='undefined' && typeof output.{accessor}.{x}!=='undefined') ? output.{accessor}.{x} : {undefined})
-  ")
-}
-
-test_condition2 = function(x, equals="true", undefined="true", accessor="do_show"){
-  glue("
-     ((typeof output!=='undefined' && typeof output.{accessor}!=='undefined' && typeof output.{accessor}.{x}!=='undefined') ? output.{accessor}.{x}=='{equals}' : {undefined})
-  ")
 }
 
 

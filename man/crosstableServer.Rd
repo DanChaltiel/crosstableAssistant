@@ -6,9 +6,6 @@
 \usage{
 crosstableServer(input, output, session, data = NULL)
 }
-\value{
-
-}
 \description{
 Server
 }

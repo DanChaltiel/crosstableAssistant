@@ -27,6 +27,12 @@ devtools::install_github("DanChaltiel/crosstable")
 devtools::install_github("DanChaltiel/crosstableAssistant")
 ```
 
+Of note, it seems that updating packages cause the whole process to
+fail. In this case, choosing `3: None` when asked for which package to
+update seems to solve this problem. Otherwise, please [fill an
+issue](https://github.com/DanChaltiel/crosstableAssistant/issues)
+describing the error message.
+
 ## Usage
 
 ``` r

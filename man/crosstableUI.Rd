@@ -6,9 +6,6 @@
 \usage{
 crosstableUI()
 }
-\value{
-
-}
 \description{
 User Interface
 }

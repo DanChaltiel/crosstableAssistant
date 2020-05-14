@@ -8,14 +8,13 @@ Depends:
     R (>= 3.0.0),
     crosstable
 Imports:
-    dplyr,
-    htmltools,
+    rstudioapi (>= 0.4),
     shiny,
     shinyjs,
     shinyWidgets,
-    shinyBS,
-    glue,
-    rstudioapi (>= 0.4)
+    dplyr,
+    htmltools,
+    glue
 Remotes: DanChaltiel/crosstable
 License: MIT + file LICENSE
 LazyData: true
