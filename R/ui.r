@@ -126,10 +126,14 @@ crosstableUI = function(){
           tabPanel("Code", fluidPage(
             h4("Simplified code"),
             verbatimTextOutput("result_simple_code"),
+            actionButton("code_insert_console", label="Insert this code into console"),
             h4("Full code (all parameters)"),
             verbatimTextOutput("result_full_code"),
             h4("Advices"),
-            htmlOutput("code_guide_label"),
+            tags$ul(
+              tags$li(HTML('Getting help: <a href="https://github.com/DanChaltiel/crosstable/wiki">Crosstable wiki on GitHub</a>.')),
+              htmlOutput("code_guide_label"),
+            ),
           ))
         ),
         tags$style(type="text/css", "#ttf, #table_summary {white-space: pre-wrap;}"),

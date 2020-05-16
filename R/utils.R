@@ -20,6 +20,12 @@ enableCheckboxGroupButton = function(inputId, value, enable=TRUE){
 
 
 
+show_error = function(x, title="Error", footer = modalButton("OK")){
+  showModal(modalDialog(title=title, glue(x, .envir = parent.frame()),
+                        footer=footer, easyClose=TRUE))
+}
+
+
 
 #' Prints something in the JS console
 #'

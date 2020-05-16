@@ -13,7 +13,7 @@
 # Sys.setenv(LANG = "en")
 
 # source("utils.R")
-#TODO changer le tooltip du dataset chooser
+#TODO changer le tooltip du dataset chooser esquisse
 #TODO https://shiny.rstudio.com/articles/validation.html
 #TODO demander à esquisse si on peut mettre une valeur par défaut au select
 #TODO benchmarker les reactive pour qu'ils ne se lancent qu'une fois
@@ -25,7 +25,7 @@
 #' @importFrom knitr knit_print
 #' @importFrom purrr map_lgl
 #' @importFrom expss var_lab
-#' @importFrom stringr str_subset
+#' @importFrom stringr str_subset str_squish
 #' @importFrom crosstable crosstable as_flextable
 #' @importFrom dplyr %>%
 #' @import shiny
@@ -41,9 +41,7 @@ crosstableServer = function(input, output, session, data=NULL) {
     launchOnStart = is.null(data) || is.null(data$data)
   )
 
-  if(is.null(data)){
-    data=list(name = "mtcars2", data = mtcars2)
-  }
+  # if(is.null(data)){data=list(name = "mtcars2", data = mtcars2)}
 
   observeEvent(reactiveValuesToList(dataset), {
     updateRadioGroupButtons(session, "by", selected = "NULL")
@@ -75,28 +73,25 @@ crosstableServer = function(input, output, session, data=NULL) {
     ))
   })
 
-  output$dataset_placeholder = renderText({
-    .data = reactiveValuesToList(dataset)
-    glue("{.data$name} ({nrow(.data$data)} rows, {ncol(.data$data)} cols)")
-  })
-
-  output$by_radiobuttons = renderUI({
-    dataset = reactiveValuesToList(dataset)$data
-    radio_opts = if(input$by_modal_sort) sort(names(dataset)) else names(dataset)
-    radioGroupButtons("by", "By column", choices=c("NULL", radio_opts), selected=get_by())
-  })
-
-  output$by_placeholder = renderText({
-    .by = get_by()
-    .data = reactiveValuesToList(dataset)$data
-    # browser()
-    if(is.data.frame(.data) && !is.null(.by) && !is.null(.data[[.by]])){
-      classes =  class(.data[[.by]]) %>% sort(TRUE) %>% paste(collapse = ", ")
-      glue("{.by} ({classes})")
-    } else{
-      "No `by` column"
+  observeEvent(input$code_insert_console,{
+    if (rstudioapi::isAvailable()) {
+      context = rstudioapi::getSourceEditorContext()
+      if(length(context$selection)>1){
+        show_error("Multiple selection is not supported, please select only one location to copy the code.")
+      } else if(str_squish(context$selection[[1]]$text)!=""){
+        show_error("The selection in RStudio was not empty. The code was not coppied to prevent any loss. Please selection an empty location/range.")
+      } else {
+        x=rstudioapi::insertText(context$selection[[1]]$range, simple_code())
+        # browser()
+        filename = if(context$path!="") context$path else "Untitled"
+        show_error(title='Code inserted", "The code to generate this crosstable has been inserted in file "{filename}" at line {x$ranges[[1]][1]}.')
+      }
+    } else {
+      show_error("This function is only available in RStudio")
     }
   })
+
+  # Reactives ---------------------------------------------------------------
 
   get_by = reactive({
     x=reactiveValuesToList(dataset)
@@ -115,7 +110,39 @@ crosstableServer = function(input, output, session, data=NULL) {
     else input$total
   })
 
-  mdata = reactive({
+  get_by_class = reactive({
+    .data=reactiveValuesToList(dataset)$data
+    if(is.null(unlist(.data))) return("null")
+
+    by_is_null = is.null(get_by())
+    by_is_dummy = !by_is_null && length(unique(.data[[get_by()]]))==1
+    by_is_num = !by_is_null && !by_is_dummy && is.numeric(.data[[get_by()]])
+    by_is_nonnum = !by_is_null && !is.numeric(.data[[get_by()]])
+
+    if(by_is_null || by_is_dummy|| by_is_num){
+      console_log("total row disable")
+      selected = if("column" %in% input$total) "column" else character(0)
+      updateCheckboxGroupButtons(session, "total", selected=selected)
+      enableCheckboxGroupButton("total", "row", FALSE)
+    } else {
+      console_log("total row enable")
+      enableCheckboxGroupButton("total", "row", TRUE)
+    }
+
+    by_class = if(by_is_null) "null" else if (by_is_dummy) "dummy" else if (by_is_num) "num" else "nonnum"
+    console_var(by_class)
+    by_class
+  })
+
+  has_label = reactive({
+    .data=reactiveValuesToList(dataset)$data
+    if(is.null(unlist(.data))) return(FALSE)
+    has_label = .data %>% map_lgl(~!is.null(var_lab(.x))) %>% any
+    console_var(has_label)
+    has_label
+  })
+
+  get_crosstable = reactive({
     x=reactiveValuesToList(dataset)
     .data=x$data
     .data_name=x$name
@@ -163,52 +190,43 @@ crosstableServer = function(input, output, session, data=NULL) {
     list(crosstable=rtn, warn=warn, err=err)
   })
 
+  # Output -----------------------------------------------------------------
 
-  has_label = reactive({
-    .data=reactiveValuesToList(dataset)$data
-    if(is.null(unlist(.data))) return(FALSE)
-    has_label = .data %>% map_lgl(~!is.null(var_lab(.x))) %>% any
-    console_var(has_label)
-    has_label
-  })
-  output$has_label = reactive({has_label()})
-
-  get_by_class = reactive({
-    .data=reactiveValuesToList(dataset)$data
-    if(is.null(unlist(.data))) return("null")
-
-    by_is_null = is.null(get_by())
-    by_is_dummy = !by_is_null && length(unique(.data[[get_by()]]))==1
-    by_is_num = !by_is_null && !by_is_dummy && is.numeric(.data[[get_by()]])
-    by_is_nonnum = !by_is_null && !is.numeric(.data[[get_by()]])
-
-    if(by_is_null || by_is_dummy|| by_is_num){
-      console_log("total row disable")
-      selected = if("column" %in% input$total) "column" else character(0)
-      updateCheckboxGroupButtons(session, "total", selected=selected)
-      enableCheckboxGroupButton("total", "row", FALSE)
-    } else {
-      console_log("total row enable")
-      enableCheckboxGroupButton("total", "row", TRUE)
-    }
-
-    by_class = if(by_is_null) "null" else if (by_is_dummy) "dummy" else if (by_is_num) "num" else "nonnum"
-    console_var(by_class)
-    by_class
-  })
   output$by_class = reactive({get_by_class()})
 
-  # Results -----------------------------------------------------------------
+  output$has_label = reactive({has_label()})
+
+  output$dataset_placeholder = renderText({
+    .data = reactiveValuesToList(dataset)
+    glue("{.data$name} ({nrow(.data$data)} rows, {ncol(.data$data)} cols)")
+  })
+
+  output$by_radiobuttons = renderUI({
+    dataset = reactiveValuesToList(dataset)$data
+    radio_opts = if(input$by_modal_sort) sort(names(dataset)) else names(dataset)
+    radioGroupButtons("by", "By column", choices=c("NULL", radio_opts), selected=get_by())
+  })
+
+  output$by_placeholder = renderText({
+    .by = get_by()
+    .data = reactiveValuesToList(dataset)$data
+    if(is.data.frame(.data) && !is.null(.by) && !is.null(.data[[.by]])){
+      classes =  class(.data[[.by]]) %>% sort(TRUE) %>% paste(collapse = ", ")
+      glue("{.by} ({classes})")
+    } else{
+      "No `by` column"
+    }
+  })
 
   output$result_flextable = renderUI({
-    if(!is.null(mdata()$crosstable)){
-      mdata()$crosstable %>% as_flextable(keep_id=input$keep_id) %>% knit_print %>% HTML
+    if(!is.null(get_crosstable()$crosstable)){
+      get_crosstable()$crosstable %>% as_flextable(keep_id=input$keep_id) %>% knit_print %>% HTML
     }
   })
 
   output$result_FT_message = renderUI({
-    warns = mdata()$warn
-    errors = mdata()$err
+    warns = get_crosstable()$warn
+    errors = get_crosstable()$err
     rtn=NULL
     if(length(errors)>0){
       rtn = paste0("<strong>Errors</strong> <ul><li>",
@@ -221,7 +239,7 @@ crosstableServer = function(input, output, session, data=NULL) {
   })
 
   output$result_crosstable = DT::renderDataTable({
-    mdata()$crosstable
+    get_crosstable()$crosstable
   })
 
   output$result_dataset = DT::renderDataTable({
@@ -244,7 +262,9 @@ crosstableServer = function(input, output, session, data=NULL) {
     glue('ct = crosstable(data={.dataset$name}, {nl}c({selection}), {nl}by={.by}, {nl}margin={.margin}, {nl}total="{.total}", {nl}percent_digits={input$percent_digits}, {nl}showNA="{input$showNA}", {nl}label={input$label}, {nl}cor_method="{input$cor_method}", {nl}unique_numeric={input$unique_numeric}, {nl}test={input$test}, {nl}effect={input$effect})\nas_flextable(ct)') %>% cat
   })
 
-  output$result_simple_code = renderText({
+  output$result_simple_code = renderText({simple_code()})
+
+  simple_code = reactive({
     .dataset = reactiveValuesToList(dataset)
     by=get_by()
     .by_class=get_by_class()
@@ -259,18 +279,8 @@ crosstableServer = function(input, output, session, data=NULL) {
     } else {
       .selection=NULL
     }
-
     if(!is.null(by)) .by="by={by}" else .by=NULL
     margin=get_margin()
-    # if(!identical(margin, "row") && !is.null(by)) {
-    #   # browser()
-    #   if(length(margin)==1)
-    #     .margin='margin="{margin}"'
-    #   else
-    #     .margin='margin=c("{paste(margin, collapse="\\", \\"")}")'
-    # } else {
-    #   .margin=NULL
-    # }
     if(identical(margin, "row") || is.null(by)) {
       .margin=NULL
     } else if(setequal(margin, c("row", "column", "cell"))){
@@ -281,8 +291,6 @@ crosstableServer = function(input, output, session, data=NULL) {
       else
         .margin='margin=c("{paste(margin, collapse="\\", \\"")}")'
     }
-
-
 
     percent_digits=input$percent_digits
     if(percent_digits!=2) .percent_digits='percent_digits={percent_digits}' else .percent_digits=NULL
@@ -309,8 +317,8 @@ crosstableServer = function(input, output, session, data=NULL) {
 
   output$code_guide_label = renderUI({
     if(!has_label()){
-      HTML('It seems that your dataset is not labelled. Labels are a good way to improve the readability of crosstables, as column naming is restricted in R, so your end reader may not understand your dataset columns. <br>
-           Labels are easy to implement using <pre>Hmisc::label`</pre> or <pre>expss::var_lab`</pre>. You can see an example of the even more powerful function <pre>expss::apply_labels`</pre> by running <pre>`vignette("crosstable")`</pre> or by clicking <a href="https://github.com/DanChaltiel/crosstable/wiki/Basic-features#dataset-modified-mtcars">here</a>')
+      HTML('<li>It seems that your dataset is not labelled. Labels are a good way to improve the readability of crosstables, as column naming is restricted in R, so your end reader may not understand your dataset columns. <br>
+           Labels are easy to implement using <tt>Hmisc::label</tt> or <tt>expss::var_lab</tt>. You can see an example of the even more powerful function <tt>expss::apply_labels</tt> by running <tt>vignette("crosstable")</tt> or by clicking <a href="https://github.com/DanChaltiel/crosstable/wiki/Basic-features#dataset-modified-mtcars">here</a>.</li>')
     }
   })
 
@@ -332,6 +340,5 @@ crosstableServer = function(input, output, session, data=NULL) {
   outputOptions(output, "by_class", suspendWhenHidden = FALSE, priority = 1000)
   outputOptions(output, "has_label", suspendWhenHidden = FALSE, priority = 1000)
 }
-
 
 

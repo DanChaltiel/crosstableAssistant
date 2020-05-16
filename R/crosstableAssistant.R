@@ -1,6 +1,7 @@
 
 # iris2
-# iris2=iris2
+# iris2=crosstable::iris2
+# iris=iris
 
 #' Crosstable Assistant
 #' @examples
