@@ -1,25 +1,6 @@
 
 
 
-#' Enable or disable a button option from a group of `checkboxGroupButtons`
-#'
-#' @param inputId the same `inputId` as in `checkboxGroupButtons`
-#' @param value the value corresponding to the `choices` argument in `checkboxGroupButtons`
-#' @param enable whether to enable (`TRUE`) or disable (`FALSE`) the button
-#'
-#' @importFrom shinyjs runjs
-#' @importFrom glue glue
-#' @return
-#' @export
-enableCheckboxGroupButton = function(inputId, value, enable=TRUE){
-  if(enable)
-    runjs(glue("$(\"input[name='{inputId}'][value='{value}']\").parents('button').removeAttr('disabled');"))
-  else
-    runjs(glue("$(\"input[name='{inputId}'][value='{value}']\").parents('button').prop('disabled', true);"))
-}
-
-
-
 show_error = function(x, title="Error", footer = modalButton("OK")){
   showModal(modalDialog(title=title, glue(x, .envir = parent.frame()),
                         footer=footer, easyClose=TRUE))

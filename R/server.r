@@ -122,11 +122,10 @@ crosstableServer = function(input, output, session, data=NULL) {
     if(by_is_null || by_is_dummy|| by_is_num){
       console_log("total row disable")
       selected = if("column" %in% input$total) "column" else character(0)
-      updateCheckboxGroupButtons(session, "total", selected=selected)
-      enableCheckboxGroupButton("total", "row", FALSE)
+      updateCheckboxGroupButtons(session, "total", selected=selected, disabledChoices="row")
     } else {
       console_log("total row enable")
-      enableCheckboxGroupButton("total", "row", TRUE)
+      updateCheckboxGroupButtons(session, "total", disabledChoices=NULL)
     }
 
     by_class = if(by_is_null) "null" else if (by_is_dummy) "dummy" else if (by_is_num) "num" else "nonnum"

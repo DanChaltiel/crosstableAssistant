@@ -2,7 +2,6 @@
 
 export(crosstableServer)
 export(crosstableUI)
-export(enableCheckboxGroupButton)
 import(shiny)
 import(shinyWidgets)
 importFrom(crosstable,as_flextable)
