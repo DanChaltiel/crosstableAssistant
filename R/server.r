@@ -1,32 +1,14 @@
 
-# library(glue)
-# library(shiny)
-# library(flextable)
-# library(shinylogs)
-# library(shinyalert)
-# library(reactlog)
-# library(tidyverse)
-
-# library(crosstable)
-
-# options(shiny.reactlog = TRUE)
-# Sys.setenv(LANG = "en")
-
-# source("utils.R")
-#TODO changer le tooltip du dataset chooser esquisse
-#TODO https://shiny.rstudio.com/articles/validation.html
-#TODO demander à esquisse si on peut mettre une valeur par défaut au select
-#TODO benchmarker les reactive pour qu'ils ne se lancent qu'une fois
-#TODO survival
-
 #' Server
 #'
 #' @importFrom glue glue
 #' @importFrom knitr knit_print
 #' @importFrom purrr map_lgl
 #' @importFrom expss var_lab
-#' @importFrom stringr str_subset str_squish
+#' @importFrom glue glue glue_collapse
+#' @importFrom stringr str_subset str_squish str_remove
 #' @importFrom crosstable crosstable as_flextable
+#' @importFrom rlang as_function parse_expr set_names
 #' @importFrom dplyr %>%
 #' @import shiny
 #' @export
@@ -35,7 +17,6 @@ crosstableServer = function(input, output, session, data=NULL) {
   dataset = callModule(
     esquisse::chooseDataServer, id="choose_dataset",
     data=data$data, name=data$name,
-    # dataModule="ImportFile",
     selectedTypes=c("discrete", "time", "continuous"),
     coerceVars=FALSE,
     launchOnStart = is.null(data) || is.null(data$data)
@@ -79,16 +60,30 @@ crosstableServer = function(input, output, session, data=NULL) {
       if(length(context$selection)>1){
         show_error("Multiple selection is not supported, please select only one location to copy the code.")
       } else if(str_squish(context$selection[[1]]$text)!=""){
-        show_error("The selection in RStudio was not empty. The code was not coppied to prevent any loss. Please selection an empty location/range.")
+        show_error("The selection in RStudio was not empty. The code was not copied to prevent any loss. Please selection an empty location/range.")
       } else {
-        x=rstudioapi::insertText(context$selection[[1]]$range, simple_code())
-        # browser()
+        range = context$selection[[1]]$range
+        code = simple_code()
+        if(range$start["column"]>1){
+          range$start["column"]=1
+          range$start["row"]=range$start["row"]+1
+          range$end = range$start
+          code = paste(code, "\n")
+        }
+        x=rstudioapi::insertText(range, code)
         filename = if(context$path!="") context$path else "Untitled"
-        show_error(title='Code inserted", "The code to generate this crosstable has been inserted in file "{filename}" at line {x$ranges[[1]][1]}.')
+        show_error(title='Code inserted', 'The code to generate this crosstable has been inserted in file "{filename}" at line {x$ranges[[1]][1]}.')
       }
     } else {
       show_error("This function is only available in RStudio")
     }
+  })
+
+  observeEvent(input$close_paste, {
+      stopApp("Code pasted")
+  })
+  observeEvent(input$cancel, {
+      stopApp("Cancel")
   })
 
   # Reactives ---------------------------------------------------------------
@@ -105,9 +100,20 @@ crosstableServer = function(input, output, session, data=NULL) {
     else input$margin
   })
   get_total = reactive({
+    message("input$total = '", input$total, "'")
     if(is.null(input$total)) "none"
     else if(setequal(input$total, c("row", "column"))) "both"
     else input$total
+  })
+  get_funs = reactive({
+    funs = c(input$funs, input$funs2, input$funs3, input$funs4)
+    if(is.null(funs)){
+      # c(` ` = "cross_summary")
+      c("Min / Max"="minmax", "Median [IQR]"="mediqr", "Mean (std)"="moystd", "N (NA)"="nna")
+    } else {
+      fun_names = c("minmax"="Min / Max", "moystd"="Mean (std)", "mediqr"="Median [IQR]", "nna"="N (NA)")
+      funs %>% set_names(ifelse(!is.na(fun_names[funs]), fun_names[funs], funs))
+    }
   })
 
   get_by_class = reactive({
@@ -144,6 +150,7 @@ crosstableServer = function(input, output, session, data=NULL) {
   get_crosstable = reactive({
     x=reactiveValuesToList(dataset)
     .data=x$data
+    # .data=crosstable::mtcars2
     .data_name=x$name
 
     if(is.null(unlist(x)))
@@ -158,25 +165,21 @@ crosstableServer = function(input, output, session, data=NULL) {
     .by=get_by()
     .margin=get_margin()
     .total=get_total()
-
-    # console_log("**CROSSTABLE GENERATION**", title=TRUE)
-    # console_var(.data_name, dim(.data))
-    # console_var(input$by, .by)
-    # console_var(input$margin, .margin)
-    # console_var(input$total, .total)
-    # console_var(input$cor_method)
+    .funs=get_funs()
 
     warn = err = NULL
     rtn = withCallingHandlers(
       tryCatch(
-        crosstable(data=.data, by=.by,
+        crosstable(data=.data, by=any_of(.by),
                    margin=.margin, total=.total, showNA=input$showNA, label=input$label,
                    cor_method=input$cor_method,
+                   funs=.funs,
                    unique_numeric=input$unique_numeric,
                    percent_digits=input$percent_digits,
                    test=input$test, effect=input$effect),
         error=function(e) {
-          err <<- append(err, conditionMessage(e))
+          e = conditionMessage(e) %>% str_remove(fixed("\033[34mi\033[39m "))
+          err <<- append(err, e)
           NULL
         }), warning=function(w) {
           warn <<- append(warn, conditionMessage(w))
@@ -255,10 +258,15 @@ crosstableServer = function(input, output, session, data=NULL) {
       .margin=glue('"{.margin}"')
 
     .total=get_total()
+    .funs=get_funs()
+    .funs=glue('"{names(.funs)}"="{.funs}"') %>% glue_collapse(sep=", ")
+    .funs=glue('c({.funs})')
+
     .dataset = reactiveValuesToList(dataset)
     selection = names(.dataset$data) %>% setdiff(.by) %>% paste(collapse=", ")
     nl=paste0("\n", strrep(" ", nchar("ct = crosstable(")))
-    glue('ct = crosstable(data={.dataset$name}, {nl}c({selection}), {nl}by={.by}, {nl}margin={.margin}, {nl}total="{.total}", {nl}percent_digits={input$percent_digits}, {nl}showNA="{input$showNA}", {nl}label={input$label}, {nl}cor_method="{input$cor_method}", {nl}unique_numeric={input$unique_numeric}, {nl}test={input$test}, {nl}effect={input$effect})\nas_flextable(ct)') %>% cat
+
+    glue('ct = crosstable(data={.dataset$name}, {nl}c({selection}), {nl}by={.by}, {nl}margin={.margin}, {nl}total="{.total}", {nl}percent_digits={input$percent_digits}, {nl}showNA="{input$showNA}", {nl}label={input$label}, {nl}funs={.funs}, {nl}cor_method="{input$cor_method}", {nl}unique_numeric={input$unique_numeric}, {nl}test={input$test}, {nl}effect={input$effect})\nas_flextable(ct)') %>% cat
   })
 
   output$result_simple_code = renderText({simple_code()})
@@ -301,6 +309,11 @@ crosstableServer = function(input, output, session, data=NULL) {
     if(label==FALSE && has_label()) .label='label={label}' else .label=NULL
     cor_method=input$cor_method
     if(cor_method!="pearson" && .by_class=="num") .cor_method='cor_method="{cor_method}"' else .cor_method=NULL
+    funs=get_funs()
+    funs=glue('"{names(funs)}"="{funs}"') %>% glue_collapse(sep=", ")
+    funs=glue('c({funs})')
+    if(funs!='c("Min / Max"="minmax", "Median [IQR]"="mediqr", "Mean (std)"="moystd", "N (NA)"="nna")')
+      .funs='funs={funs}' else .funs=NULL
     test=input$test
     if(test==TRUE && !.by_class %in% c("null", "dummy")) .test='test={test}' else .test=NULL
     effect=input$effect
@@ -308,7 +321,7 @@ crosstableServer = function(input, output, session, data=NULL) {
     unique_numeric=input$unique_numeric
     if(unique_numeric!=3) .unique_numeric='unique_numeric={unique_numeric}' else .unique_numeric=NULL
 
-    cross_params = glue(paste(c(.selection, .by, .margin, .percent_digits, .total, .showNA, .label, .cor_method, .test, .effect, .unique_numeric), collapse=", "))
+    cross_params = glue(paste(c(.selection, .by, .margin, .percent_digits, .total, .showNA, .label, .cor_method, .funs, .test, .effect, .unique_numeric), collapse=", "))
     if(cross_params!="") cross_params = glue(", ", cross_params)
 
     glue("ct = crosstable({.dataset$name}{cross_params})\nas_flextable(ct)")
@@ -317,7 +330,7 @@ crosstableServer = function(input, output, session, data=NULL) {
   output$code_guide_label = renderUI({
     if(!has_label()){
       HTML('<li>It seems that your dataset is not labelled. Labels are a good way to improve the readability of crosstables, as column naming is restricted in R, so your end reader may not understand your dataset columns. <br>
-           Labels are easy to implement using <tt>Hmisc::label</tt> or <tt>expss::var_lab</tt>. You can see an example of the even more powerful function <tt>expss::apply_labels</tt> by running <tt>vignette("crosstable")</tt> or by clicking <a href="https://github.com/DanChaltiel/crosstable/wiki/Basic-features#dataset-modified-mtcars">here</a>.</li>')
+           Labels are easy to implement in many ways, an example being provided <a href="https://danchaltiel.github.io/crosstable/articles/crosstable.html#dataset-modified-mtcars">here</a>.</li>')
     }
   })
 

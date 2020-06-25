@@ -1,7 +1,4 @@
 
-# iris2
-# iris2=crosstable::iris2
-# iris=iris
 
 #' Crosstable Assistant
 #' @examples
@@ -15,8 +12,6 @@ crosstableAssistant=function(.data=NULL, viewer="dialog"){
 
   context = rstudioapi::getSourceEditorContext()
   selected_dataname = context$selection[[1]]$text
-  # selected_dataname="ris"
-  # selected_dataname="letters"
 
   data = list()
   if(is.null(.data) && nzchar(selected_dataname)) {
@@ -27,7 +22,7 @@ crosstableAssistant=function(.data=NULL, viewer="dialog"){
     data$data = .data
   }
 
-  viewer = "pane"
+  # viewer = "pane"
 
   if (viewer == "browser") {
     inviewer <- browserViewer(browser = getOption("browser"))
@@ -36,7 +31,7 @@ crosstableAssistant=function(.data=NULL, viewer="dialog"){
   } else {
     inviewer <- dialogViewer(
       "Crosstable Builder",
-      width = 1000, height = 750
+      width = 1500, height = 1000
     )
   }
 
